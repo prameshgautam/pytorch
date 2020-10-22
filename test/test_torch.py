@@ -17224,6 +17224,76 @@ scipy_lobpcg  | {:10.2e}  | {:10.2e}  | {:6} | N/A
 
         self.compare_with_numpy(torch.reciprocal, np.reciprocal, vals, device, dtype)
 
+    def test_copysign_bool(self, device):
+        # Promoted to float
+        # Only 0 and 1
+        x = torch.tensor([0, 0, 1, 1], device=device, dtype=torch.bool)
+        y = torch.tensor([0, 1, 0, 1], device=device, dtype=torch.bool)
+        res = torch.tensor([0, 0, 1, 1], device=device, dtype=torch.float)
+        self.assertEqual(torch.copysign(x, y), res)
+
+    def _test_copysign(self, device, dtype, result_dtype):
+        # Scalar
+        x = torch.tensor([-1, 0, -0, 1], dtype=dtype)
+        y = torch.tensor(-1.)
+        res = torch.tensor([-1, -0, -0, -1], dtype=result_dtype)
+        self.assertEqual(torch.copysign(x, y), res)
+
+        x = torch.tensor(-1.)
+        y = torch.tensor([-1, 0, -0, 1], dtype=dtype)
+        res = torch.tensor([-1, 1, 1, 1], dtype=result_dtype)
+        self.assertEqual(torch.copysign(x, y), res)
+
+        # Constant
+        x = torch.tensor([-1, 0, -0, 1], dtype=dtype)
+        res = torch.tensor([-1, -0, -0, -1], dtype=result_dtype)
+        self.assertEqual(torch.copysign(x, -1.), res)
+
+        # Normal
+        res = torch.tensor([[1, 0, 0, 1] * 2, [-1, -0, -0, -1] * 2], dtype=result_dtype)
+        x = torch.tensor([-1, -0, 0, 1] * 2, dtype=dtype)
+        y = torch.tensor([[0] * 4, [1] * 4], dtype=dtype).reshape(-1)
+        self.assertEqual(torch.copysign(x, y), res[0])
+
+        y = torch.copysign(y, -1)
+        self.assertEqual(torch.copysign(x, y), res[1])
+
+        # Broadcast
+        res = torch.tensor([[[1, 0, 0, 1]] * 2, [[-1, -0, -0, -1]] * 2], dtype=result_dtype)
+
+        # LHS
+        x = torch.tensor([-1, -0, 0, 1] * 2, dtype=dtype).reshape(2, 1, 4)
+        y = torch.tensor([[0] * 4, [1] * 4], dtype=dtype)
+        z = torch.copysign(x, y)
+        for i in range(2):
+            self.assertEqual(z[i], res[0])
+
+        y = torch.copysign(y, -1)
+        z = torch.copysign(x, y)
+        for i in range(2):
+            self.assertEqual(z[i], res[1])
+
+        # RHS
+        x = torch.tensor([-1, 0, -0, 1] * 2, dtype=dtype).reshape(2, 4)
+        y = torch.tensor([[0] * 4, [1] * 4], dtype=dtype).reshape(2, 1, 4)
+        z = torch.copysign(x, y)
+        for i in range(2):
+            self.assertEqual(z[i], res[0])
+
+        y = torch.copysign(y, -1)
+        z = torch.copysign(x, y)
+        for i in range(2):
+            self.assertEqual(z[i], res[1])
+
+    @dtypes(torch.half, torch.float, torch.double)
+    def test_copysign_floating(self, device, dtype):
+        self._test_copysign(device, dtype, dtype)
+
+    @dtypes(torch.int8, torch.short, torch.int, torch.long)
+    def test_copysign_integral(self, device, dtype):
+        # Promoted to float
+        self._test_copysign(device, dtype, torch.float)
+
     @dtypes(torch.bfloat16, torch.float)
     def test_div(self, device, dtype):
         for op, method, inplace in ((torch.div, torch.Tensor.div, torch.Tensor.div_),

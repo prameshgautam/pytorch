@@ -1,9 +1,12 @@
+#include <ATen/AccumulateType.h>
 #include <ATen/Dispatch.h>
 #include <ATen/native/DispatchStub.h>
 #include <ATen/native/cuda/Loops.cuh>
 #include <ATen/native/cuda/Math.cuh>
 #include <ATen/native/TensorIterator.h>
 #include <ATen/native/BinaryOps.h>
+
+#include <c10/cuda/CUDAMathCompat.h>
 
 
 // NOTE: CUDA on Windows requires that the enclosing function
@@ -108,6 +111,14 @@ void heaviside_kernel_cuda(TensorIterator& iter) {
   });
 }
 
+void copysign_kernel_cuda(TensorIterator& iter) {
+  AT_DISPATCH_FLOATING_TYPES_AND_HALF(iter.common_dtype(), "copysign_cuda", [&]() {
+    gpu_kernel_with_scalars(iter, []GPU_LAMBDA(scalar_t a, scalar_t b) -> scalar_t {
+      return c10::cuda::compat::copysign(a, b);
+    });
+  });
+}
+
 REGISTER_DISPATCH(atan2_stub, &atan2_kernel_cuda);
 REGISTER_DISPATCH(smooth_l1_stub, &smooth_l1_kernel_cuda);
 REGISTER_DISPATCH(mse_stub, &mse_kernel_cuda);
@@ -118,5 +129,6 @@ REGISTER_DISPATCH(lcm_stub, &lcm_kernel_cuda);
 REGISTER_DISPATCH(hypot_stub, &hypot_kernel_cuda);
 REGISTER_DISPATCH(nextafter_stub, &nextafter_kernel_cuda);
 REGISTER_DISPATCH(heaviside_stub, &heaviside_kernel_cuda);
+REGISTER_DISPATCH(copysign_stub, &copysign_kernel_cuda);
 
 }} // namespace at::native

@@ -6709,6 +6709,43 @@ class TestAutogradDeviceType(TestCase):
             mod = torch.nn.GRU(hsize, hsize, bias=bias).to(device).to(torch.float64)
             self._test_rnn_mod(mod, inp)
 
+    def test_copysign_grad(self, device):
+        # Input is 0
+        x = torch.tensor([0, 0, 0], dtype=torch.float, device=device, requires_grad=True)
+        y = torch.tensor([-1, 0, 1], dtype=torch.float, device=device, requires_grad=True)
+        out = torch.copysign(x, y)
+        out.sum().backward()
+        self.assertEqual(x.grad.tolist(), [0., 0., 0.])
+        self.assertEqual(y.grad.tolist(), [0.] * 3)
+
+        # Input is -0
+        x = torch.tensor([0, 0, 0], dtype=torch.float, device=device)
+        x = - torch.abs(x)
+        x.requires_grad_()
+        y = torch.tensor([-1, 0, 1], dtype=torch.float, device=device, requires_grad=True)
+        out = torch.copysign(x, y)
+        out.sum().backward()
+        self.assertEqual(x.grad.tolist(), [0., 0., 0.])
+        self.assertEqual(y.grad.tolist(), [0.] * 3)
+
+        # Other is 0
+        x = torch.tensor([-1, 0, 1], dtype=torch.float, device=device, requires_grad=True)
+        y = torch.tensor([0, 0, 0], dtype=torch.float, device=device, requires_grad=True)
+        out = torch.copysign(x, y)
+        out.sum().backward()
+        self.assertEqual(x.grad.tolist(), [-1., 0., 1.])
+        self.assertEqual(y.grad.tolist(), [0.] * 3)
+
+        # Other is -0
+        x = torch.tensor([-1, 0, 1], dtype=torch.float, device=device, requires_grad=True)
+        y = torch.tensor([0, 0, 0], dtype=torch.float, device=device)
+        y = - torch.abs(y)
+        y.requires_grad_()
+        out = torch.copysign(x, y)
+        out.sum().backward()
+        self.assertEqual(x.grad.tolist(), [1., 0., -1.])
+        self.assertEqual(y.grad.tolist(), [0.] * 3)
+
     @deviceCountAtLeast(1)
     def test_grad_assignment(self, devices):
         x = torch.randn(5, 5, device=devices[0])
